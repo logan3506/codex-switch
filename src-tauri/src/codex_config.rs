@@ -3017,10 +3017,11 @@ fn preserve_live_config_sections(config_path: &std::path::Path, new_config: &str
         }
     }
     for (key, item) in live_doc.iter() {
-        let key_str = key.get();
+        let key_str = key.get().unwrap_or("");
         if !provider_owned.contains(key_str) && !target_doc.contains_key(key_str) && !item.is_none() {
             target_doc[key_str] = item.clone();
         }
     }
     Ok(target_doc.to_string())
 }
+
