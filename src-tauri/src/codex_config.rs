@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+﻿use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::config::{
@@ -2982,4 +2982,45 @@ model_catalog_json = "cc-switch-model-catalog.json"
             "None arm should remove relative cc-switch-owned field"
         );
     }
+}
+
+/// Read the existing live config.toml and merge non-provider sections into
+/// the new provider config. This ensures switching providers does not drop:
+/// - [windows] sandbox, [projects], [desktop], [features], [mcp_servers],
+///   [plugins], [marketplaces], shell_environment_policy, and other settings.
+fn preserve_live_config_sections(config_path: &std::path::Path, new_config: &str) -> Result<String, AppError> {
+    let live_text = match std::fs::read_to_string(config_path) {
+        Ok(text) => text,
+        Err(_) => return Ok(new_config.to_string()),
+    };
+    if live_text.trim().is_empty() {
+        return Ok(new_config.to_string());
+    }
+    let Ok(live_doc) = live_text.parse::<toml_edit::DocumentMut>() else {
+        return Ok(new_config.to_string());
+    };
+    let Ok(mut target_doc) = new_config.parse::<toml_edit::DocumentMut>() else {
+        return Ok(new_config.to_string());
+    };
+    let provider_owned: std::collections::HashSet<&str> = [
+        "model_provider", "model", "model_catalog_json", "model_context_window",
+        "model_auto_compact_token_limit", "model_reasoning_effort",
+        "disable_response_storage", "base_url", "wire_api", "notify",
+        "web_search", "experimental_bearer_token", "requires_openai_auth",
+        "model_providers",
+    ].into_iter().collect();
+    for section_key in ["windows", "projects", "desktop", "features", "mcp_servers", "plugins", "marketplaces", "shell_environment_policy"] {
+        if let Some(live_item) = live_doc.get(section_key) {
+            if !target_doc.contains_key(section_key) && !live_item.is_none() {
+                target_doc[section_key] = live_item.clone();
+            }
+        }
+    }
+    for (key, item) in live_doc.iter() {
+        let key_str = key.get();
+        if !provider_owned.contains(key_str) && !target_doc.contains_key(key_str) && !item.is_none() {
+            target_doc[key_str] = item.clone();
+        }
+    }
+    Ok(target_doc.to_string())
 }
