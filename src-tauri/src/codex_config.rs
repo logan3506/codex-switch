@@ -3009,19 +3009,20 @@ fn preserve_live_config_sections(config_path: &std::path::Path, new_config: &str
         "web_search", "experimental_bearer_token", "requires_openai_auth",
         "model_providers",
     ].into_iter().collect();
-    for section_key in ["windows", "projects", "desktop", "features", "mcp_servers", "plugins", "marketplaces", "shell_environment_policy"] {
-        if let Some(live_item) = live_doc.get(section_key) {
-            if !target_doc.contains_key(section_key) && !live_item.is_none() {
-                target_doc[section_key] = live_item.clone();
+    let sections = ["windows", "projects", "desktop", "features", "mcp_servers", "plugins", "marketplaces", "shell_environment_policy"];
+    for sk in &sections {
+        if let Some(live_item) = live_doc.get(sk) {
+            if !target_doc.contains_key(sk) {
+                target_doc[*sk] = live_item.clone();
             }
         }
     }
-    for (key, item) in live_doc.iter() {
-        let key_str = key.get().unwrap_or("");
-        if !provider_owned.contains(key_str) && !target_doc.contains_key(key_str) && !item.is_none() {
+    for (key_str, item) in live_doc.iter() {
+        if !provider_owned.contains(key_str) && !target_doc.contains_key(key_str) {
             target_doc[key_str] = item.clone();
         }
     }
     Ok(target_doc.to_string())
 }
+
 
